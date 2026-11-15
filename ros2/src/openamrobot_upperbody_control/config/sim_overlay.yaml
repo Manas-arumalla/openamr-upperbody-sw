@@ -9,8 +9,9 @@
 # rate the real ones run at upstream. gz_ros2_control updates the controllers on the first physics step at which one period has
 # passed, so with a 1 ms world step the measured rate is lower than the number here; the control package README says what was measured.
 #
-# max_effort 3.0 N*m: the rated torque of the gripper motor (DM-J4310-2EC V1.1), as the grip limit of the simulated grippers.
-# GripperActionController on a position command interface carries max_effort and does not enforce it; see the README.
+# max_effort 3.0 N*m: the rated torque of the gripper motor (DM-J4310-2EC V1.1), recorded on the command path of the simulated grippers.
+# NOT A FORCE LIMIT. GripperActionController on a position command interface carries max_effort and does not enforce it, and the
+# URDF effort limit of the finger joint is still 7 N*m, so the simulated finger can push with the motor's peak. See the README.
 
 controller_manager:
   ros__parameters:
@@ -18,8 +19,8 @@ controller_manager:
 
 left_gripper_controller:
   ros__parameters:
-    max_effort: 3.0 # N*m
+    max_effort: 3.0 # N*m; carried, not enforced: not a force limit
 
 right_gripper_controller:
   ros__parameters:
-    max_effort: 3.0 # N*m
+    max_effort: 3.0 # N*m; carried, not enforced: not a force limit

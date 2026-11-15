@@ -28,8 +28,8 @@ no safety logic, no firmware, no change to a joint limit, origin, axis, mass or 
   `openarm_bringup/config/controllers/openarm_bimanual_controllers.yaml`). New `openamrobot_upperbody_control/config/sim_overlay.yaml`, handed to
   `gz_ros2_control` after `arm_controllers.yaml` through the new xacro arg `controllers_overlay_file` (a second `<parameters>`).
   `arm_controllers.yaml` is unchanged: mock and real stay at 100 Hz. `gz_ros2_control` updates on whole physics steps, so
-  `openamrobot_upperbody_gazebo/worlds/empty.sdf` now steps at 1/1500 s (was 1 ms). Measured: 499.5 Hz with 1 ms steps, 748.9 Hz with the new
-  step. The simulation runs slower for it. A world with 1 ms steps runs the arm controllers at 500 Hz.
+  `openamrobot_upperbody_gazebo/worlds/empty.sdf` now steps at 1/1500 s (was 1 ms). Measured: 499.5 Hz with 1 ms steps, 743.6 Hz with the new
+  step (most common interval between updates 1.333 ms). The simulation runs slower for it. A world with 1 ms steps runs the arm controllers at 500 Hz.
 - **Gripper grip limit from the motor data**: 3.0 N*m, the rated torque of the gripper motor (rated current 2.5 A), in the profile and as
   `max_effort` of both gripper controllers in the simulation overlay. It is carried on the command path and not enforced: the position
   command interface ignores `max_effort` and the URDF effort limit (7 N*m, the motor's peak) is unchanged.

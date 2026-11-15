@@ -35,7 +35,8 @@ of each value is written:
 **What the rate needs from the world.** `gz_ros2_control` updates the controllers on the first physics step at which one controller
 period has passed. Measured in this repository on 14 Nov 2026 (`joint_state_broadcaster` messages per second of simulated time): with
 1 ms steps a 750 Hz request gives 499.5 Hz; with the 1/1500 s step that `openamrobot_upperbody_gazebo/worlds/empty.sdf` now uses it
-gives 748.9 Hz. A world with 1 ms steps (platform-sw's `walled_world.sdf`) therefore runs these controllers at 500 Hz.
+gives 743.6 Hz, with 1.333 ms as the most common interval between updates (a short count window and lost messages put the count a
+little under 750). A world with 1 ms steps (platform-sw's `walled_world.sdf`) therefore runs these controllers at 500 Hz.
 
 **What `max_effort` does and does not do.** `GripperActionController` on a position command interface carries `max_effort` and does
 not enforce it, and the URDF effort limit of the finger joint (7 N*m, the motor's peak) is unchanged, so the physics still allows the

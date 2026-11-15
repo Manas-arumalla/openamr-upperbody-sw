@@ -64,7 +64,7 @@ Since 14 Nov 2026 the simulated OpenArm joints are no longer frictionless.
   controller manager runs at upstream's 750 Hz in the simulation (100 Hz before, and still 100 Hz on mock and real).
 - **World step.** `gz_ros2_control` updates the controllers on the first physics step at which one controller period has passed, so
   the step has to divide the period. `worlds/empty.sdf` now steps at 1/1500 s (written 0.00066667 s). Measured here by counting
-  `joint_state_broadcaster` messages per second of simulated time: 499.5 Hz with 1 ms steps, 748.9 Hz with this step. A world with
+  `joint_state_broadcaster` messages per second of simulated time: 499.5 Hz with 1 ms steps, 743.6 Hz with this step (the most common interval between updates is 1.333 ms; a short count window and lost messages put the count a little under 750). A world with
   1 ms steps, platform-sw's `walled_world.sdf` included, still works and runs the arm controllers at 500 Hz. The finer step costs
   simulation speed: on the machine this was written on the real-time factor went from about 0.5 to about 0.3. The base now steps finer
   than the 1 ms platform-sw tuned its drive on; G01's drive and odometry checks pass on it.

@@ -113,11 +113,12 @@ jobs:
           dpkg-query -W -f='${Package} ${Version}\n' ros-jazzy-xacro | tee versions.txt
           python3 -m venv --system-site-packages .venv
           .venv/bin/pip install --quiet -r src/openamr-upperbody-sw/simulation/requirements.txt
-          .venv/bin/pip freeze | grep -i -E '^(mujoco|pin|usd-core|trimesh|pycollada|numpy|pyyaml|jsonschema|pytest)==' | tee -a versions.txt
+          .venv/bin/pip freeze | grep -i -E '^(mujoco|pin|usd-core|trimesh|pycollada|scipy|numpy|pyyaml|jsonschema|pytest)==' | tee -a versions.txt
           { echo '### Versions'; echo '```'; cat versions.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Generate MJCF and the Isaac import job (bp000, bp050)
         run: |
+          set -o pipefail
           source /opt/ros/jazzy/setup.bash
           .venv/bin/python src/openamr-upperbody-sw/simulation/tools/generate.py --isaac \
             --platform-sw src/openamr-platform-sw --openarm-description src/upstream/openarm_description --out build/sim \

@@ -167,9 +167,17 @@ def expand(name, platform_sw, openarm_description, upstream_extra=(), source_roo
     status = "not checked"
     if check_lock:
         entry = lock_lookup(inputs)
-        if entry is None:
-            raise NotLocked(f"{name}: no lock entry for inputs {inputs}. Re-lock in audits first; this is not a pass.")
-        if entry["sha256"] != sha:
-            raise LockMismatch(f"{name}: expansion SHA-256 {sha} differs from the lock {entry['sha256']} for the same inputs")
-        status = "matches lock"
+        if entry is not None:
+            if entry["sha256"] != sha:
+                raise LockMismatch(f"{name}: expansion SHA-256 {sha} differs from the lock {entry['sha256']} for the same inputs")
+            status = "matches lock"
+        else:
+            # The description files differ from every locked commit. The result counts only if the expansion itself is a
+            # locked one for the same configuration, pins and xacro build: then the change did not reach the expansion.
+            same_args = {k: v for k, v in inputs.items() if k != "description_digest"}
+            near = [e for e in load_lock()["entries"] if all(e["inputs"].get(k) == v for k, v in same_args.items())]
+            if not any(e["sha256"] == sha for e in near):
+                raise NotLocked(f"{name}: no lock entry for inputs {inputs} and the hash {sha} is not locked for this "
+                                "configuration. Re-lock in audits first; this is not a pass.")
+            status = "hash in lock, inputs changed (description digest not locked; re-lock pending)"
     return Expansion(name=name, args=args, text=text, sha256=sha, inputs=inputs, lock_status=status, package_dirs=package_dirs)

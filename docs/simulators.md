@@ -10,8 +10,10 @@ Simulation is development evidence only. Nothing here is hardware evidence, phys
 - **One source.** Every backend file is generated from `combined_robot.xacro` with `hardware_profile:=gazebo` for a named
   configuration (`bp000`, `bp050`). That is the text Gazebo gets. Its SHA-256 is checked against the digital-twin lock before
   anything is written (`simulation/expansion_lock.yaml`, a mirror of `digital-twin/phase1/digital_twin.lock.yaml` in
-  openAMRobot/audits at `be17653`). A different hash for the same inputs stops the generator (exit 2). Inputs without a lock entry stop
-  it too (exit 3, BLOCKED).
+  openAMRobot/audits at `be17653`). A different hash for the same inputs stops the generator (exit 2). When the description files
+  differ from every locked commit, the result counts only if the hash is the locked one for the same configuration, pins and xacro
+  build; the status then reads `hash in lock, inputs changed (... re-lock pending)`, never `matches lock`. Otherwise the generator
+  stops (exit 3, BLOCKED). On PR #66 head `5adeba3` the status is the second one: re-lock in audits is pending.
 - **Lift position is joint state.** It is never an xacro argument. MuJoCo gets one keyframe per lift stop (L1000, L1175, L1350, from
   the SRDF, cross-checked with the shoulder heights of `upperbody_configuration.yaml`). One hash covers every lift position.
 - **Generated files are build products.** MJCF, converted meshes, Isaac jobs and USD go to `build/` (git-ignored). They are never
@@ -27,7 +29,7 @@ Simulation is development evidence only. Nothing here is hardware evidence, phys
 
 | Input | Pin | Where it is pinned |
 |---|---|---|
-| openamr-upperbody-sw description | expansion digest `9dcaa6c2` (the files xacro reads); equal at PR #66 `6fe5e9c` and `43a7ced` | `simulation/expansion_lock.yaml` |
+| openamr-upperbody-sw description | locked digest `9dcaa6c2` (the files xacro reads) at PR #66 `6fe5e9c`; PR #66 head `5adeba3` adds a text note to `openarm_v2.yaml`, so its digest is `e4bea9d6` and the expansion hashes are unchanged | `simulation/expansion_lock.yaml` |
 | openamr-platform-sw (base description) | `8e7a45428d06b015cdf488ca8e182c450039afbc` | `config/upstream_pins.yaml` |
 | openamr-platform-sw (wheel friction, #135) | `07417783bb602c233f7011599dc12e4d81e38a04` | `engine_overrides.yaml` sources |
 | enactic/openarm_description | `14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831` | `config/upstream_pins.yaml` |
@@ -255,7 +257,7 @@ For CI, set the repository variable `ISAAC_GPU_RUNNER` to a GPU runner label; th
   for approach only. No file of it is used here; its licence could not be confirmed from the repository page.
 - enactic/openarm_mujoco (Apache-2.0) is the comparison reference and the source of the solver values and mimic constraint values,
   copied as numbers. No file of it is copied or loaded into the generated model.
-- PR #66 (sim dynamics) provides the damping, friction and armature profile, the 750 Hz overlay and the 1/1500 s world. This work is
+- PR #66 (sim dynamics, head `5adeba3`) provides the damping, friction and armature profile, the 750 Hz overlay and the 1/1500 s world. This work is
   stacked on it while it is not merged.
 
 ## Not verified

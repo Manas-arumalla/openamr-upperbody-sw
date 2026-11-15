@@ -93,6 +93,12 @@ no safety logic, no firmware, no change to a joint limit, origin, axis, mass or 
   `test_sim_dynamics_urdf.py` (`<dynamics>` on all 16 arm and gripper joints in `gazebo`, none in `real`, nothing else moved),
   `test_sim_overlay_yaml.py` (the overlay equals the profile and adds no controller), `test_sim_control_rate.py` (the world step gives 750 Hz).
 
+- **Not used by the software-in-the-loop launch (15 Nov 2026).** `openamrobot_openarm_emulator/launch/sil.launch.py` expands the model with
+  `sim_dynamics:=off`. It drives the joints by effort on 1 ms steps, where the profile's damping is stepped explicitly and is unstable
+  without the rotor inertia (damping times the step over the link inertia is up to 6.6; the limit is 2). Found by that package's CI on the
+  first merge of the two changes: an arm that should hold at zero read -1.33 rad. The position-servo simulation is not affected. A static
+  test recomputes the ratio and checks the launch.
+
 ### Fixed (14 Nov 2026; gripper `open` and `closed` were swapped in the SRDF)
 
 - **`open` is now the far end of each hand's range (+0.7854 left, -0.7854 right) and `closed` is 0.** They were the other way round, so a

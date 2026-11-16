@@ -3,10 +3,12 @@
 checks, and is stated next to it.
 
 * Lift: never faster than lift_joint's URDF velocity (0.018 m/s, +1 % for integration), so the 0.35 m stroke takes at
-  least 19.4 s; static sag under the arms at L1350 within 10 % of the 0.5 mm the servo was sized for.
-* Arms under gravity, SRDF hands_up at L1175, no gravity compensation: at rest each joint's servo error e satisfies
-  |kp e - tau_g| <= frictionloss + 1e-3 N m (the actuator carries gravity, up to the joint's dry friction). With
-  gravity compensation: |kp e| <= frictionloss + 1e-3 N m.
+  least 19.4 s. The sag at L1350 is by design (the servo stiffness is sized from the same load for 0.5 mm), so that test
+  only shows the design holds in the scene and the 800 N limit is not reached; the DOLD datasheet gives no stiffness.
+* Arms under gravity, SRDF hands_up at L1175: the joint's equation of motion near rest,
+  kp e - (kd + d) qdot + f_friction = tau_g + (M qddot)_i, bounds the servo error e:
+  |kp e - tau_g| <= frictionloss + (kd + d) |qdot| + |(M qddot)_i| (+1e-9), with qdot and qddot as measured. With gravity
+  compensation the actuators feed tau_g forward, and the same bound holds with tau_g = 0.
 * Wheeled base (on the empty floor_*.xml): equal wheel speeds w = 1 rad/s drive straight at w R = 0.1 m/s (+-5 %);
   opposite speeds turn the base the right way; the base stays within 2 degrees of level. Turning at the thin-wheel rate
   2 w R / track = 0.5 rad/s (+-10 %) is a KNOWN GAP (strict xfail below, with the measurement).
@@ -65,8 +67,10 @@ def test_lift_holds_the_arms_at_l1350(scene_for):
     twin = yaml.safe_load(open(generate.config_dir() / "mujoco_twin.yaml"))
     designed = twin["lift_static_error"]["value"]
     sag = 0.35 - data.qpos[model.jnt_qposadr[_id(model, mujoco.mjtObj.mjOBJ_JOINT, "lift_joint")]]
-    print(f"lift sag at L1350: {sag * 1e3:.4f} mm (designed {designed * 1e3} mm)")
-    assert 0.0 <= sag <= designed * 1.10
+    force = abs(float(data.actuator_force[_id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, "lift_joint")]))
+    effort = _limits("lift_joint")["effort"]
+    print(f"lift sag at L1350: {sag * 1e3:.4f} mm (designed {designed * 1e3} mm), actuator force {force:.1f} N (limit {effort})")
+    assert 0.0 <= sag <= designed * 1.10 and force < effort
 
 
 @pytest.mark.parametrize("gravcomp", [False, True], ids=["no_gravcomp", "gravcomp"])
@@ -80,6 +84,8 @@ def test_arms_hold_hands_up_under_gravity(gravcomp, scene_for):
     for _ in range(int(5.0 / model.opt.timestep)):
         mujoco.mj_step(model, data)
     mujoco.mj_forward(model, data)
+    m_qacc = np.zeros(model.nv)
+    mujoco.mj_mulM(model, data, m_qacc, data.qacc)
     rows = []
     for s in SIDES:
         for k in range(1, 8):
@@ -90,7 +96,9 @@ def test_arms_hold_hands_up_under_gravity(gravcomp, scene_for):
             e = data.ctrl[a] - data.qpos[model.jnt_qposadr[j]]
             tau_g = 0.0 if gravcomp else data.qfrc_bias[dof]
             residual = abs(kp * e - tau_g)
-            bound = model.dof_frictionloss[dof] + 1e-3
+            kd = -model.actuator_biasprm[a, 2]
+            bound = (model.dof_frictionloss[dof] + (kd + model.dof_damping[dof]) * abs(data.qvel[dof])
+                     + abs(m_qacc[dof]) + 1e-9)
             rows.append((residual / bound, name, e, tau_g, residual, bound))
             assert abs(data.qvel[dof]) < 1e-3, f"{name} not at rest: {data.qvel[dof]}"
     rows.sort(reverse=True)
@@ -152,12 +160,13 @@ def test_wheeled_base_turns_on_the_spot(scene_for):
 
 
 @pytest.mark.xfail(strict=True, reason=(
-    "KNOWN GAP, measured 2026-11-12: the URDF's drive wheel is a rigid 46 mm wide cylinder; MuJoCo contacts it at both "
-    "rim edges, which scrub against each other at full friction when turning on the spot (left wheel: two contacts "
-    "at |F_t| = 1.5 x normal, 86 N on 57.4 N, opposite), and the front casters carry 146 of 308 N. Spin reaches 0.28 rad/s against 0.50 "
-    "for a thin wheel, while straight driving matches (0.0999 vs 0.100 m/s). Keeping the URDF cylinder (parity with "
-    "Gazebo, which uses the same shape) or giving MuJoCo a narrow tyre contact is a modelling decision for the "
-    "maintainers. strict: if a model change makes this pass, the decision has been made and this mark must go."))
+    "KNOWN GAP, measured 2026-11-16 on the 87.1 kg model: the URDF's drive wheel is a rigid 46 mm wide cylinder, and "
+    "MuJoCo contacts it at both rim edges, which scrub at full friction when turning on the spot (each |F_t| = 1.5 x "
+    "normal, e.g. 331 N on 220.7 N). With the placeholder wheel servo (kv 10) the wheels reach only +-0.31 rad/s and "
+    "the base turns at 0.15 rad/s against 0.50 for a thin wheel; with a stiff servo (kv 1000, wheels +-0.99 rad/s) at "
+    "0.31 rad/s. Gazebo (DART) on the same wheels at +-1 rad/s: 0.48 rad/s, but 0.081 m/s straight where MuJoCo gives "
+    "0.0999 (review/gazebo_spin/RESULTS.md in the work notes). The wheel-ground model, and the hub motor's torque and "
+    "acceleration limits, are for the maintainers to decide. strict: if a model change makes this pass, remove the mark."))
 def test_spin_rate_matches_thin_wheel_kinematics(scene_for):
     rate, expected, _ = _spin(scene_for)
     assert abs(rate - expected) <= 0.10 * expected

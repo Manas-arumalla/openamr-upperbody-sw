@@ -108,14 +108,69 @@ def test_solver_options(model):
     assert model.opt.cone == mujoco.mjtCone.mjCONE_ELLIPTIC
 
 
-def test_gravity_compensation_variant(model_for):
-    off, _ = model_for(generate.Config())
-    on, _ = model_for(generate.Config(arm_gravity_compensation=True))
-    arm_bodies = [b for b in range(on.nbody) if (mujoco.mj_id2name(on, mujoco.mjtObj.mjOBJ_BODY, b) or "").startswith(("openarm_left_link", "openarm_right_link"))]
+def test_gravity_compensation_goes_through_actuators_only(model_for):
+    """With --arm-gravity-compensation every arm body is compensated, and ALL of it reaches the joints through actuators
+    (arm joints and the lift), inside their force limits: no DOF gets any of it as a passive force (review H1: before,
+    98 N went to the base and the lift). Without the option there is none at all."""
+    off, _ = model_for(generate.Config(base_mode="fixed"))
+    on, _ = model_for(generate.Config(base_mode="fixed", arm_gravity_compensation=True))
+    name = lambda m, b: mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b) or ""  # noqa: E731
+    arm_bodies = [b for b in range(on.nbody) if name(on, b).startswith(("openarm_left_link", "openarm_right_link"))]
     assert arm_bodies and all(on.body_gravcomp[b] == 1.0 for b in arm_bodies)
     assert not off.body_gravcomp.any() and not off.jnt_actgravcomp.any()
-    for side in SIDES:
-        assert on.jnt_actgravcomp[_jnt(on, f"openarm_{side}_joint1")]
+    assert on.jnt_actgravcomp[_jnt(on, "lift_joint")]
+    data = mujoco.MjData(on)
+    mujoco.mj_forward(on, data)
+    routed = [j for j in range(on.njnt) if on.jnt_actgravcomp[j]]
+    passive = {mujoco.mj_id2name(on, mujoco.mjtObj.mjOBJ_JOINT, j): float(data.qfrc_gravcomp[on.jnt_dofadr[j]])
+               for j in range(on.njnt) if j not in routed and abs(data.qfrc_gravcomp[on.jnt_dofadr[j]]) > 0}
+    assert not passive, f"gravity compensation reaching joints as a passive force: {passive}"
+    lift = on.jnt_dofadr[_jnt(on, "lift_joint")]
+    assert data.qfrc_gravcomp[lift] > 0 and data.qfrc_passive[lift] == 0.0  # through the lift actuator, not passive
+    print(f"lift carries {data.qfrc_gravcomp[lift]:.2f} N of arm weight through its actuator (limit 800 N)")
+
+
+def test_contact_parameters(model_for):
+    """Wheel friction, frictionless casters and the priorities that make them the contact's (mujoco_twin.yaml)."""
+    twin = yaml.safe_load(open(generate.config_dir() / "mujoco_twin.yaml"))
+    model, _ = model_for(generate.Config())
+    def geoms(link):
+        b = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, link)
+        assert b >= 0, link
+        return [g for g in range(model.ngeom) if model.geom_bodyid[g] == b and model.geom_contype[g]]
+    for link in twin["drive_wheel_links"]["value"]:
+        assert geoms(link) and all(model.geom_friction[g][0] == twin["wheel_friction"]["value"] and model.geom_priority[g] == 1
+                                   for g in geoms(link)), link
+    for link in twin["caster_links"]["value"]:
+        assert geoms(link) and all(model.geom_condim[g] == 1 and model.geom_priority[g] == 1 for g in geoms(link)), link
+
+
+def test_left_arm_meshes_are_mirrored_not_shared(model_for):
+    """The left arm draws from the right arm's STLs with scale 1 -1 1. MuJoCo reuses a mesh asset by file name and
+    ignores scale on reuse, so without one asset per (file, scale) the left arm would get the right arm's geometry.
+    Every mesh geom pair (left, right) must use different assets, and the left one must carry the URDF's scale."""
+    model, _ = model_for(generate.Config())
+    scale = {}
+    for link in urdf_root().findall("link"):
+        for el in link.findall("collision") + link.findall("visual"):
+            mesh = el.find("geometry/mesh")
+            if mesh is not None:
+                scale.setdefault(link.get("name"), set()).add(mesh.get("scale", "1 1 1"))
+    pairs = 0
+    for g in range(model.ngeom):
+        if model.geom_type[g] != mujoco.mjtGeom.mjGEOM_MESH:
+            continue
+        left = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, model.geom_bodyid[g])
+        if not left.startswith("openarm_left_") or "1 -1 1" not in scale.get(left, set()):
+            continue
+        right = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, left.replace("_left_", "_right_"))
+        rgeoms = [h for h in range(model.ngeom) if model.geom_bodyid[h] == right and model.geom_type[h] == mujoco.mjtGeom.mjGEOM_MESH]
+        assert rgeoms, left
+        assert model.geom_dataid[g] not in {model.geom_dataid[h] for h in rgeoms}, f"{left} shares a mesh asset with the right arm"
+        assert list(model.mesh_scale[model.geom_dataid[g]]) == [1.0, -1.0, 1.0], left
+        pairs += 1
+    assert pairs > 0, "no mirrored left-arm mesh found: the check checked nothing"
+    print(f"{pairs} mirrored left-arm mesh geoms, each on its own asset")
 
 
 def test_moveit_joint_limits_add_no_position_or_velocity_limit():

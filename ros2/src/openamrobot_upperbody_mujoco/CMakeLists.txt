@@ -6,7 +6,7 @@ find_package(ament_cmake_python REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 ament_python_install_package(${PROJECT_NAME})
-install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY config licenses DESTINATION share/${PROJECT_NAME})
 install(PROGRAMS scripts/generate_mjcf DESTINATION lib/${PROJECT_NAME})
 
 # The MJCF is generated from the INSTALLED description on every build (no OUTPUT: always out of date), so it cannot
@@ -36,7 +36,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(j02_kinematic_parity test/test_j02_kinematic_parity.py TIMEOUT 600)
   # J03 mass, COM and inertia per link = the URDF's (inertia within MuJoCo's own eigensolver bound)
   ament_add_pytest_test(j03_mass_parity test/test_j03_mass_parity.py TIMEOUT 600)
-  # J04 limits, gains and joint dynamics = their sources (URDF, pinned control_gains.yaml, motor classes)
+  # J04 limits, gains and joint dynamics = their sources (URDF, pinned control_gains.yaml, sim_dynamics profile)
   ament_add_pytest_test(j04_limits_parity test/test_j04_limits_parity.py TIMEOUT 600)
   # J05 self-collision on, exclusions = the SRDF's disabled pairs, no self-contact at the SRDF named poses
   ament_add_pytest_test(j05_collision test/test_j05_collision.py TIMEOUT 600)

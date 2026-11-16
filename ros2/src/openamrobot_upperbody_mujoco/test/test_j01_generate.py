@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""J01: every buildable configuration generates an MJCF that MuJoCo loads, with one body per URDF link, and the MJCF
+"""J01: every value of every configuration axis generates an MJCF that MuJoCo loads, with one body per URDF link, and the MJCF
 installed by the build is byte-identical to what the installed generator writes now (no stale file)."""
 
 import itertools
@@ -8,11 +8,14 @@ import pytest
 from conftest import AXES, BASELINE, MUJOCO_SHARE, generate, mujoco, urdf_root
 
 CONFIGS = [generate.Config(base_plate=bp, head_pitch=hp) for bp, hp in itertools.product(AXES["base_plate"], AXES["head_pitch"])]
-VARIANTS = [generate.Config(base_mode="fixed"), generate.Config(arm_gravity_compensation=True)]
+# Every value of every configuration axis: base_plate x head_pitch, and each base_tilt at the baseline.
+CONFIGS += [generate.Config(base_tilt=bt) for bt in AXES["base_tilt"] if bt != BASELINE["base_tilt"]]
+VARIANTS = [generate.Config(base_mode="fixed"), generate.Config(base_mode="fixed", arm_gravity_compensation=True)]
 
 
 def test_mujoco_version():
-    # Polynomial joint damping ([linear, quadratic, cubic]) is what generate.py writes: MuJoCo 3.8 or later.
+    # generate.py sets joint damping as MuJoCo's polynomial [linear, quadratic, cubic] (through the URDF importer and the
+    # spec API), which needs MuJoCo 3.8 or later.
     major, minor = (int(x) for x in mujoco.__version__.split(".")[:2])
     assert (major, minor) >= (3, 8), mujoco.__version__
 
@@ -47,3 +50,8 @@ def test_installed_mjcf_is_current(bp, tmp_path):
                                               base_tilt=BASELINE["base_tilt"], column=BASELINE["column"]),
                               tmp_path, f"openamrobot_{bp}")
     assert fresh.read_text() == installed.read_text(), "the installed MJCF is stale: rebuild the package"
+
+
+def test_gravity_compensation_needs_the_fixed_base(tmp_path):
+    with pytest.raises(ValueError, match="base-mode fixed"):
+        generate.generate(generate.Config(arm_gravity_compensation=True), tmp_path)

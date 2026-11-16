@@ -25,7 +25,7 @@ lift_static_error:
 
 wheel_velocity_gain:
   value: 10.0
-  source: "modelling: velocity-servo gain (N m s/rad) per drive wheel; with half the robot's mass reflected at the 0.100 m wheel radius this is a time constant of a few tens of ms. No hub-motor data exists; Gazebo's DiffDrive sets wheel velocities without a torque limit, and so does this (no forcerange)"
+  source: "modelling: velocity-servo gain (N m s/rad) per drive wheel. No hub-motor data exists (torque limit, acceleration limit), so there is no sourced value. Measured 2026-11-16 on the 87.1 kg model: straight driving reaches the commanded 1 rad/s at any gain; for a +-1 rad/s spin command the wheels reach +-0.31 rad/s at kv 10 (the wide-wheel scrub load), +-0.95 at kv 100, +-0.99 at kv 1000, but a stiff servo with no torque limit pitches the base 10 deg on a step command, which a real motor cannot. Replace with the hub motor's torque limit and the drive's acceleration limits when they exist"
   status: placeholder
 
 wheel_friction:

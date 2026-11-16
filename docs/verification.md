@@ -62,6 +62,22 @@ What they permit: the statement that the simulated model carries these values an
 recorded source. What they do not permit: any statement that the values match a physical arm. They are upstream's simulator values, not
 identified ones, and the armature is not applied in Gazebo.
 
+## The MuJoCo model (J01–J07)
+
+`openamrobot_upperbody_mujoco` generates a MuJoCo model from the installed `combined_robot.xacro` on every build. Its
+tests run with `colcon test --packages-select openamrobot_upperbody_mujoco` (`MUJOCO_GL=egl` or `osmesa` for the
+camera tests, which otherwise skip and say why). They are not part of `verify_a6.sh` or the CI jobs yet. What each
+checks and the recorded results are in the package README.
+
+It permits: the MuJoCo model has the URDF's links at the URDF's poses (J02), its masses, centres of mass and inertias
+(J03), its limits, the real profile's arm gains and the simulator dynamics profile (J04), the SRDF's collision matrix
+(J05), and cameras on the URDF optical frames (J07); and in MuJoCo the lift keeps to its datum speed and the arms hold
+under gravity as their gains predict (J06).
+
+It does not permit any claim about the real robot, about Gazebo, or about how the base drives in reality: the
+wheel-ground contact is a modelling choice with a measured gap (J06, a strict xfail), and the wheel servo gain is a
+placeholder.
+
 ## The Gazebo report (`verify_gazebo.sh`)
 
 ```bash

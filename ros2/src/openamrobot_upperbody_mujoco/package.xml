@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>openamrobot_upperbody_mujoco</name>
+  <version>0.0.0</version>
+  <description>MuJoCo model of OpenAMRobot 2.0, generated from combined_robot.xacro at build time (the same robot as Gazebo and MoveIt): actuators from the URDF limits and the pinned OpenArm control gains, the finger mimic, head and wrist cameras, the MoveIt collision exclusions, a wheeled or fixed base, lift keyframes and a basic scene; tests that it matches the URDF.</description>
+  <maintainer email="info@botshare.ai">OpenAMRobot</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+  <!-- Build depends: the MJCF is generated during the build from the installed description, SRDF and OpenArm gains. -->
+  <depend>openamrobot_upperbody_description</depend>
+  <depend>openamrobot_upperbody_moveit</depend>
+  <depend>openarm_description</depend>
+  <depend>xacro</depend>
+  <depend>python3-mujoco-pip</depend>
+  <depend>python3-yaml</depend>
+  <depend>python3-numpy</depend>
+  <depend>ament_index_python</depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>python3-pytest</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

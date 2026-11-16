@@ -1,0 +1,38 @@
+# Copyright 2026 Enactic, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Modified for OpenAMRobot: the joint-dynamics values of the motor classes in enactic/openarm_mujoco
+# v2/openarm_bimanual.xml (<default class="motor_DM8009"> etc.) at the commit below, transcribed to YAML; the motor
+# class of each OpenArm v2.0 joint as that file assigns it. Values unchanged.
+source:
+  repository: https://github.com/enactic/openarm_mujoco
+  commit: "1daab06716b779376dbe7f01fb0548f8b539bb35"
+  file: v2/openarm_bimanual.xml
+
+motor_classes:
+  DM8009: {damping: 1.0, armature: 0.016, frictionloss: 0.2}
+  DM4340: {damping: 0.9, armature: 0.030, frictionloss: 0.1}
+  DM4310: {damping: 0.9, armature: 0.002, frictionloss: 0.04}
+  finger: {damping: 0.6, armature: 0.002, frictionloss: 0.0}   # class motor_finger: DM4310's armature, its own damping and friction
+
+joint_classes:
+  joint1: DM8009
+  joint2: DM8009
+  joint3: DM4340
+  joint4: DM4340
+  joint5: DM4310
+  joint6: DM4310
+  joint7: DM4310
+  finger_joint1: finger
+  finger_joint2: finger

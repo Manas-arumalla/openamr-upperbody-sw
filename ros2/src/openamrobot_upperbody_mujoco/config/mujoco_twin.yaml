@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: MIT
+# The MuJoCo twin's own numbers: everything the URDF, the datums and the pinned OpenArm gains do not already say.
+# Each entry carries value / source / status, the convention of the description package's datums.yaml.
+# status: verified (a first-hand source), external (another owner's figure, not checked by us),
+#         modelling (a simulation choice, derived as stated), placeholder (no source exists; replace when one does).
+# Masses, inertias, joint limits, efforts and lift speed are NOT here: they are read from the expanded URDF.
+# The arm kp/kd are NOT here: they are read from the pinned openarm_description control_gains.yaml, the file the real
+# ros2_control profile sends to the motors.
+schema_version: 1
+
+solver:
+  value: {timestep: 0.001, integrator: implicitfast, cone: elliptic, impratio: 10}
+  source: "enactic/openarm_mujoco v2/openarm_bimanual.xml <option> (tuned there for pinch grasps); see openarm_motor_dynamics.yaml for the commit"
+  status: external
+
+finger_gains:
+  value: {kp: 10.0, kv: 0.2}
+  source: "enactic/openarm_mujoco v2/openarm_bimanual.xml finger actuators (kp 10, kv 0.2). The driver's own gripper gains act in motor space (openarm_ros2 GRIPPER_KP/KD) and do not transfer to the joint."
+  status: external
+
+lift_static_error:
+  value: 0.0005
+  source: "modelling: the lift servo stiffness is kp = (supported mass) * g / this, with the supported mass taken from the compiled model, and kv gives critical damping; the DOLD datasheet gives no stiffness"
+  status: modelling
+
+wheel_velocity_gain:
+  value: 10.0
+  source: "modelling: velocity-servo gain (N m s/rad) per drive wheel; with half the robot's mass reflected at the 0.100 m wheel radius this is a time constant of a few tens of ms. No hub-motor data exists; Gazebo's DiffDrive sets wheel velocities without a torque limit, and so does this (no forcerange)"
+  status: placeholder
+
+wheel_friction:
+  value: 1.5
+  source: "openamr-platform-sw robo_urdf <gazebo reference=left/right_wheel_link> surface mu 1.5 (MuJoCo has one sliding coefficient; Gazebo's mu2 0.5 has no equivalent)"
+  status: external
+
+caster_links:
+  value: [fl_wheel_link, fr_wheel_link, bl_wheel_link, br_wheel_link]
+  source: "openamr-platform-sw robo_urdf <gazebo reference=*_wheel_link> surface mu 0 / mu2 0: frictionless caster balls, modelled as condim 1 contacts that out-rank the floor (priority 1)"
+  status: external
+
+drive_wheel_links:
+  value: [left_wheel_link, right_wheel_link]
+  source: "openamr-platform-sw robo_urdf: left/right_wheel_joint continuous, the DiffDrive plugin's joints"
+  status: external
+
+cameras:
+  head:
+    value: {frame: head_camera_optical_frame, fovy_deg: 52.0, resolution: [1280, 720]}
+    source: "ZED Mini. fovy and resolution from enactic/openarm_mujoco v2/cell/cell.xml camera_head_left (Enactic's own model of the OpenArm ZED); Stereolabs gives 57 deg vertical for the RAW rev2 image and less after rectification. Frame: upstream upper_sensors / option B head camera"
+    status: external
+  left_wrist:
+    value: {frame: left_wrist_camera_optical_frame, fovy_deg: 55.4, resolution: [640, 480]}
+    source: "no wrist camera model is named upstream (datum left_wrist_camera_pose is a placeholder, issue #24); fovy as OpenRAL's twin (openral _openamrobot_v2_assets.py) so the two twins see the same cone"
+    status: placeholder
+  right_wrist:
+    value: {frame: right_wrist_camera_optical_frame, fovy_deg: 55.4, resolution: [640, 480]}
+    source: "as left_wrist"
+    status: placeholder

@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""ros2 run openamrobot_upperbody_mujoco generate_mjcf --out-dir DIR [--base-plate bp050 --head-pitch hp25 ...]"""
+import sys
+
+from openamrobot_upperbody_mujoco.generate import main
+
+sys.exit(main())

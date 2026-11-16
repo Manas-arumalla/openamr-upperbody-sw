@@ -87,6 +87,16 @@ no safety logic, no firmware, no change to a joint limit, origin, axis, mass or 
 - **Test sequences keep the same motion under the right names**: the gripper sequence of M01, M02 and M06 is `open` then `closed` (was `closed`
   then `open`): to the far end and back to 0, as before. Text that said "close" for moving the fingers now says "move" or "reach the goal".
   Not changed: the joint limits, the sign per hand, the controllers. The motor sign per hand on the real gripper is still undocumented upstream.
+### Added (14 Nov 2026; night-shift actuator-ledger, proposal)
+
+- **Actuator and electrical ledger** `config/actuator_ledger.yaml` with `config/actuator_ledger.schema.json`: one entry per actuator or bus
+  node (2 x ZLLG80ASM250-L-B2 V1.01 hub motor, ZLAC8015D V4.2, DOLD Hexalift V4 350, CTL-017 lift node, Daly BMS, and the 8 OpenArm v2.0 motors
+  per arm including the gripper). Every value carries unit (SI), source, status and owner; unknown values are null with status `unknown` and
+  a note naming what closes them. Data only: no URDF, xacro, controller, firmware or launch file reads it, and `config_id` does not change.
+- **`test/test_actuator_ledger.py`**: schema validation, provenance of every value, and equality of the ledger's arm and lift limits with the
+  expanded combined URDF. Registered in `CMakeLists.txt` as `actuator_ledger`, so `colcon test` runs it.
+- **Hub motor values from the selected B2 V1.01 drawing** (platform-hw `8ed2b06`, `datasheets/ZLTech/wheel_ZLLG80ASM250`): part and revision, direct
+  drive, 5.5 / 16 N*m, 200 / 260 rpm, 6.5 / 19 A, 24 V. Rotor inertia, damping and friction stay unknown.
 
 ### Changed (14 Nov 2026; platform pin to platform-sw main 8e7a454)
 

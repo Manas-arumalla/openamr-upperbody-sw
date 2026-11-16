@@ -31,10 +31,12 @@ STOPS = generate.lift_stops()  # {L1000: 0.0, L1175: 0.175, L1350: 0.35}
 
 @functools.lru_cache(maxsize=None)
 def urdf_root(base_plate="bp000", head_pitch="hp30", base_tilt="bt10", column="dold_v4_350"):
-    """The expanded URDF (ElementTree root), as Gazebo and MoveIt get it with hardware_profile mock."""
+    """The expanded URDF (ElementTree root), as Gazebo and MoveIt get it with hardware_profile mock, plus the simulator
+    joint dynamics (sim_dynamics:=on: <dynamics> elements only; kinematics and masses are unchanged)."""
     doc = xacro.process_file(str(DESCRIPTION / "urdf" / "combined_robot.xacro"), mappings={
         "column": column, "base_plate": base_plate, "head_pitch": head_pitch, "base_tilt": base_tilt,
-        "arm_package": "openarm", "hardware_profile": "mock", "enable_planar_base": "false"})
+        "arm_package": "openarm", "hardware_profile": "mock", "enable_planar_base": "false",
+        "sim_dynamics": "on"})
     return ET.fromstring(doc.toxml())
 
 

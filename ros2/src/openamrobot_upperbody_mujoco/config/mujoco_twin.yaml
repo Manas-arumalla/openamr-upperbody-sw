@@ -10,7 +10,7 @@ schema_version: 1
 
 solver:
   value: {timestep: 0.001, integrator: implicitfast, cone: elliptic, impratio: 10}
-  source: "enactic/openarm_mujoco v2/openarm_bimanual.xml <option> (tuned there for pinch grasps); see openarm_motor_dynamics.yaml for the commit"
+  source: "enactic/openarm_mujoco v2/openarm_bimanual.xml <option> at 1daab06716b779376dbe7f01fb0548f8b539bb35 (tuned there for pinch grasps; the same commit the description's sim_dynamics profile reads)"
   status: external
 
 finger_gains:

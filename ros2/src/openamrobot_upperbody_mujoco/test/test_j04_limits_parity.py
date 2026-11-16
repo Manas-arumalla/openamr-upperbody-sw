@@ -2,11 +2,10 @@
 """J04: every limit, gain and joint dynamic in the MJCF is the number its source gives.
 
 Sources: the URDF <limit> and <mimic>; the pinned openarm_description control_gains.yaml (the gains the real ros2_control
-profile sends to the motors); config/openarm_motor_dynamics.yaml (enactic/openarm_mujoco motor classes);
+profile sends to the motors); the description's config/sim_dynamics/openarm_v2.yaml (simulator joint dynamics, #66);
 config/mujoco_twin.yaml. Exact equality: these numbers are copied, not computed.
 """
 
-import re
 
 import pytest
 import yaml
@@ -88,15 +87,18 @@ def test_lift_servo(model):
     assert model.actuator_forcelimited[a] and list(model.actuator_forcerange[a]) == [-lim["effort"], lim["effort"]]
 
 
-def test_joint_dynamics_from_the_motor_classes(model):
-    motors = yaml.safe_load(open(generate.config_dir() / "openarm_motor_dynamics.yaml"))
-    assert re.fullmatch(r"[0-9a-f]{40}", motors["source"]["commit"]), "pin the source commit by its full hash"
-    for side in SIDES:
-        for joint, cls in motors["joint_classes"].items():
-            dof = model.jnt_dofadr[_jnt(model, f"openarm_{side}_{joint}")]
-            dyn = motors["motor_classes"][cls]
-            assert (model.dof_damping[dof], model.dof_armature[dof], model.dof_frictionloss[dof]) == (
-                dyn["damping"], dyn["armature"], dyn["frictionloss"]), f"{side} {joint}"
+def test_joint_dynamics_are_the_sim_dynamics_profile(model):
+    """Damping and friction (through the URDF's <dynamics>) and armature (set by the generator) of every OpenArm joint =
+    the description's sim_dynamics profile, the file Gazebo reads too. Exact: copied numbers. Every profile entry is
+    checked, so a joint the generator misses (or a by-name edit that lands on the wrong joint) fails here."""
+    profile = yaml.safe_load(open(f"{get_package_share_directory('openamrobot_upperbody_description')}/{generate.SIM_DYNAMICS_REL}"))
+    joints = profile["joints"]
+    assert len(joints) == 18
+    for name, entry in joints.items():
+        dof = model.jnt_dofadr[_jnt(model, name)]
+        want = (entry["damping"]["value"], entry["friction"]["value"], entry["armature"]["value"])
+        got = (model.dof_damping[dof], model.dof_frictionloss[dof], model.dof_armature[dof])
+        assert got == want, f"{name}: (damping, frictionloss, armature) {got} != profile {want}"
 
 
 def test_solver_options(model):
@@ -114,3 +116,16 @@ def test_gravity_compensation_variant(model_for):
     assert not off.body_gravcomp.any() and not off.jnt_actgravcomp.any()
     for side in SIDES:
         assert on.jnt_actgravcomp[_jnt(on, f"openarm_{side}_joint1")]
+
+
+def test_moveit_joint_limits_add_no_position_or_velocity_limit():
+    """Issue #58 names MoveIt's joint_limits.yaml. It adds acceleration limits only (status placeholder); position and
+    velocity come from the URDF, which is what the twin uses. If it ever overrides one, the twin must follow: fail here.
+    MuJoCo has no joint acceleration limit; the lift reaches 0.018 m/s at once where MoveIt plans 0.01 m/s^2 (known gap)."""
+    from conftest import MOVEIT  # noqa: PLC0415
+
+    limits = yaml.safe_load(open(MOVEIT / "config" / "joint_limits.yaml"))["joint_limits"]
+    overrides = {j: k for j, v in limits.items() for k in v
+                 if k in ("has_position_limits", "min_position", "max_position", "has_velocity_limits", "max_velocity")}
+    assert not overrides, f"joint_limits.yaml overrides URDF position/velocity limits: {overrides}"
+    assert set(limits) <= {j.get("name") for j in urdf_root().findall("joint")}

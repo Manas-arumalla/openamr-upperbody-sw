@@ -140,3 +140,42 @@ def test_negative_control_eigensolver_bound_is_tight_enough():
     k = np.array([[0, -axis[2], axis[1]], [axis[2], 0, -axis[0]], [-axis[1], axis[0], 0]])
     r = np.eye(3) + np.sin(th) * k + (1 - np.cos(th)) * k @ k
     assert np.abs(r @ t @ r.T - t).max() > eigensolver_bound(t)
+
+
+def test_masses_are_the_roadmap_mass_export():
+    """Issue #58 asks for "our masses" (docs mass_summary.json, the total of the roadmap mass export). The URDF reads its
+    masses from the in-repo copy of that export (roadmap_masses), so per export link the twin must have the export's mass
+    and centre of mass in the link frame exactly (1e-9), and the link where the export places it: link_origin_m is
+    written with 4 decimals, so 5e-5 m.
+
+    The arms are one pseudo-link "openarm" in the export (12.26 kg, external_nominal: the URDF keeps upstream's per-link
+    masses, which sum to 12.260007 kg), so they are checked by total mass at the export's 0.01 kg precision (+-0.005).
+    That lumping (12.26 kg at (0.36, 0, 0.75) m; the URDF arms at zero are at (0.239, 0, 0.806) m) is the whole of the
+    difference between mass_summary.json's COM, (0.0311, -0.0026, 0.3267) m, and the twin's: 17.0 mm in x, -7.8 mm in z.
+    (The export also adds com_m to link_origin_m without the link's rotation, which is right only for unrotated links.)"""
+    import yaml  # noqa: PLC0415
+    from conftest import DESCRIPTION  # noqa: PLC0415
+
+    export = yaml.safe_load(open(DESCRIPTION / "config" / "roadmap_mass_export.yaml"))
+    model = mujoco.MjModel.from_xml_path(str(generate.share("openamrobot_upperbody_mujoco") / "mjcf" / "openamrobot_bp000.xml"))
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)  # qpos0 = L1000, arms at zero, base_footprint at the origin; bp000 as the export
+    checked = 0
+    for gname, group in export["groups"].items():
+        for link, e in group["links"].items():
+            b = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, link)
+            if gname == "openarm":
+                assert b < 0, "the export's arm entry is a pseudo-link, not a URDF link"
+                arms = sum(model.body_mass[i] for i in range(1, model.nbody)
+                           if mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, i).startswith("openarm_"))
+                assert abs(arms - e["mass_kg"]) <= 0.005, f"arms {arms} kg vs export {e['mass_kg']} kg"
+                continue
+            assert b >= 0, f"export link {link} has no body"
+            assert abs(model.body_mass[b] - e["mass_kg"]) <= 1e-9 * e["mass_kg"], link
+            assert np.abs(model.body_ipos[b] - np.array(e["com_m"])).max() <= 1e-9, link
+            assert np.abs(data.xpos[b] - np.array(e["link_origin_m"])).max() <= 5e-5 + 1e-12, link
+            checked += 1
+    total = float(model.body_subtreemass[0])
+    print(f"{checked} export links equal; total {total:.6f} kg (mass_summary.json: 87.11 kg)")
+    # openamrobot-docs ff8ca57 scripts/roadmap_model/mass_summary.json totals.L1000.mass_kg (the export pin of test_mass_export_source)
+    assert abs(total - 87.11) <= 0.005, "mass_summary.json total, written to 0.01 kg"

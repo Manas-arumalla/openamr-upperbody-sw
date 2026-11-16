@@ -4,7 +4,7 @@
 The robot is the URDF the description package expands, imported by MuJoCo's own URDF compiler and then given what a
 URDF cannot say to MuJoCo: actuators, the finger mimic, cameras, the collision exclusions MoveIt uses, and a base
 mode. Every number added here comes from the URDF, from the pinned OpenArm description (the real arms' control
-gains), or from config/mujoco_twin.yaml and config/openarm_motor_dynamics.yaml, each with its source. Masses and
+gains and the description package's sim_dynamics profile), or from config/mujoco_twin.yaml, each with its source. Masses and
 inertias are the URDF's and nothing else: `inertiafromgeom="false"` stops MuJoCo from giving the massless URDF links
 a mass from their geometry.
 
@@ -31,6 +31,7 @@ PKG = "openamrobot_upperbody_mujoco"
 DESCRIPTION_PKG = "openamrobot_upperbody_description"
 MOVEIT_PKG = "openamrobot_upperbody_moveit"
 OPENARM_GAINS_REL = "assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml"
+SIM_DYNAMICS_REL = "config/sim_dynamics/openarm_v2.yaml"
 BASE_MODES = ("wheeled", "fixed")
 SIDES = ("left", "right")
 GRAVITY = 9.81
@@ -90,6 +91,9 @@ def expand_urdf(cfg: Config) -> str:
         # mock is the profile that gives lift_joint its DOLD effort and velocity (the real profile gives it 0 / 0).
         "hardware_profile": "mock",
         "enable_planar_base": "false",
+        # The description's simulator joint dynamics (config/sim_dynamics/openarm_v2.yaml, #66): <dynamics damping
+        # friction> on every OpenArm joint, which MuJoCo's URDF importer reads as damping and frictionloss.
+        "sim_dynamics": "on",
     }
     return xacro.process_file(str(xacro_file), mappings=mappings).toxml()
 
@@ -170,7 +174,8 @@ def build_spec(cfg: Config, out_dir: Path):
     import mujoco  # noqa: PLC0415
 
     twin = load_yaml(config_dir() / "mujoco_twin.yaml")
-    motors = load_yaml(config_dir() / "openarm_motor_dynamics.yaml")
+    # Armature has no URDF element: the profile says a MuJoCo model built from the URDF must set it from the file.
+    sim_dynamics = load_yaml(share(DESCRIPTION_PKG) / SIM_DYNAMICS_REL)["joints"]
     gains = load_yaml(share("openarm_description") / OPENARM_GAINS_REL)
 
     robot = strip_for_mujoco(expand_urdf(cfg))
@@ -246,13 +251,13 @@ def build_spec(cfg: Config, out_dir: Path):
     for side in SIDES:
         for i in range(1, 8):
             jname = f"openarm_{side}_joint{i}"
-            _arm_joint(spec, jname, motors["motor_classes"][motors["joint_classes"][f"joint{i}"]])
+            _set_armature(spec, jname, sim_dynamics)
             g = gains[f"joint{i}"]
             act = spec.add_actuator(name=jname, target=jname, trntype=mujoco.mjtTrn.mjTRN_JOINT)
             act.set_to_position(kp=float(g["kp"]), kv=float(g["kd"]))
             _limit_actuator(act, limits[jname])
         for fname in (f"openarm_{side}_finger_joint1", f"openarm_{side}_finger_joint2"):
-            _arm_joint(spec, fname, motors["motor_classes"][motors["joint_classes"][fname.split(f"{side}_")[1]]])
+            _set_armature(spec, fname, sim_dynamics)
         fname = f"openarm_{side}_finger_joint1"
         fg = twin["finger_gains"]["value"]
         act = spec.add_actuator(name=fname, target=fname, trntype=mujoco.mjtTrn.mjTRN_JOINT)
@@ -311,11 +316,11 @@ def _subtree(body):
         yield from _subtree(child)
 
 
-def _arm_joint(spec, name: str, dyn: dict) -> None:
-    j = spec.joint(name)
-    j.damping = [dyn["damping"], 0.0, 0.0]  # polynomial damping since MuJoCo 3.8: [linear, quadratic, cubic]
-    j.armature = dyn["armature"]
-    j.frictionloss = dyn["frictionloss"]
+def _set_armature(spec, name: str, sim_dynamics: dict) -> None:
+    """Joint armature from the sim_dynamics profile; damping and friction already came in through the URDF."""
+    if name not in sim_dynamics:
+        raise KeyError(f"{name}: not in {SIM_DYNAMICS_REL}; every movable OpenArm joint needs an entry")
+    spec.joint(name).armature = float(sim_dynamics[name]["armature"]["value"])
 
 
 def _limit_actuator(act, lim: dict) -> None:

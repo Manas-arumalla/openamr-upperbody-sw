@@ -52,7 +52,7 @@ Nothing is tuned by eye. Every number is taken from the URDF, from the pinned Op
 | Masses, COMs, inertias | the URDF's, nothing added (`inertiafromgeom="false"`) | URDF; J03 |
 | Arm joints | position servos, kp/kd = the MIT gains the real arm gets | `openarm_description/.../config/arm/control/control_gains.yaml` at the pin, read at build time: the file the `real` profile uses |
 | Arm force limits | URDF `effort` (40/40/27/27/7/7/7 N m) | URDF; J04 |
-| Arm joint damping, armature, friction | per motor class (DM8009/DM4340/DM4310) | enactic/openarm_mujoco, vendored in `config/openarm_motor_dynamics.yaml` (Apache-2.0, commit pinned) |
+| Arm joint damping, friction, armature | per joint (motor classes DM8009/DM4340/DM4310, finger) | the description's `config/sim_dynamics/openarm_v2.yaml` (#66): damping and friction reach MuJoCo through the URDF (`sim_dynamics:=on`), armature is set from the same file; the one source Gazebo uses too |
 | Gravity compensation | off by default; `--arm-gravity-compensation` applies it through the actuators, inside their force limits | the pinned `openarm_ros2` driver sends `{kp, kd, q, qd, tau}`, and a position controller leaves `tau` at 0 |
 | Grippers | `finger_joint1` servo (kp 10, kv 0.2, ±7 N m); `finger_joint2` follows it by a joint equality from the URDF `<mimic>` | openarm_mujoco finger gains; URDF |
 | Lift | speed-limited servo (`intvelocity`): input speed ≤ URDF velocity (0.018 m/s), force ≤ URDF effort (800 N); stiffness sized for 0.5 mm static error under the load it carries | URDF (datums `lift_max_*`); J06 |
@@ -96,8 +96,8 @@ frame error beyond the inertia bound.
 
 ## Credits
 
-- [enactic/openarm_mujoco](https://github.com/enactic/openarm_mujoco) (Apache-2.0): motor-class joint dynamics,
-  finger gains, solver options, the head-camera model.
+- [enactic/openarm_mujoco](https://github.com/enactic/openarm_mujoco) (Apache-2.0): finger gains, solver options,
+  the head-camera model (the joint dynamics come from it too, through the description's sim_dynamics profile).
 - [OpenRAL](https://github.com/OpenRAL/openral) (Apache-2.0), Adrian Llopart's OpenAMRobot 2.0 twin (openral#497):
   one mesh file per (file, scale) for the mirrored arm, the mimic as a joint equality, and the optical-frame camera
   rotation.

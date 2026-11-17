@@ -72,7 +72,7 @@ Refresh the lock mirror after audits re-locks (never by hand):
 .venv/bin/python simulation/tools/mirror_lock.py --lock <audits>/digital-twin/phase1/digital_twin.lock.yaml --audits-commit <sha> --clone . --platform-sw <clone> --openarm-description <pin>
 ```
 
-CI: `.github/workflows/simulators.yml`, job `mujoco` on every pull request, job `isaac` BLOCKED without a GPU runner.
+CI: `.github/workflows/simulators.yml`, job `mujoco` on every pull request (it also runs the CPU Isaac checks: import job and USD checker). Job `isaac` runs only on the GPU runner named by `ISAAC_GPU_RUNNER`; without one it is skipped and the `mujoco` job reports the USD import as BLOCKED (summary and warning annotation).
 
 ## What each backend models
 

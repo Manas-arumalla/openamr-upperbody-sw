@@ -3,7 +3,7 @@
 
 Sources: the URDF <limit> and <mimic>; the pinned openarm_description control_gains.yaml (the gains the real ros2_control
 profile sends to the motors); the description's config/sim_dynamics/openarm_v2.yaml (simulator joint dynamics, #66);
-config/mujoco_twin.yaml. Exact equality: these numbers are copied, not computed.
+config/mujoco_twin.yaml; the description's config/actuator_ledger.yaml (#65) for force limits. Exact equality: these numbers are copied, not computed.
 """
 
 
@@ -85,6 +85,27 @@ def test_lift_servo(model):
     assert list(model.actuator_ctrlrange[a]) == [-lim["velocity"], lim["velocity"]]
     assert model.actuator_actlimited[a] and list(model.actuator_actrange[a]) == [lim["lower"], lim["upper"]]
     assert model.actuator_forcelimited[a] and list(model.actuator_forcerange[a]) == [-lim["effort"], lim["effort"]]
+
+
+def _ledger_mismatches(model, peaks):
+    out = {}
+    for joint, peak in peaks.items():
+        a = _act(model, joint)
+        got = list(model.actuator_forcerange[a]) if model.actuator_forcelimited[a] else None
+        if got != [-peak, peak]:
+            out[joint] = (got, peak)
+    return out
+
+
+def test_force_limits_are_the_actuator_ledger_peaks(model):
+    """Every actuator's force limit = the peak torque/force the actuator ledger (#65) gives for its joint: the hub
+    motors (16 N m, the only limit not also in the URDF), the lift (800 N), the 14 arm joints and both grippers.
+    Negative control: changing one ledger value makes exactly that joint fail."""
+    peaks = generate.ledger_peaks()
+    assert len(peaks) == 19, sorted(peaks)  # 2 wheels + lift + 14 arm joints + 2 grippers
+    assert not _ledger_mismatches(model, peaks), _ledger_mismatches(model, peaks)
+    tampered = dict(peaks, left_wheel_joint=peaks["left_wheel_joint"] + 1.0)
+    assert list(_ledger_mismatches(model, tampered)) == ["left_wheel_joint"]
 
 
 def test_joint_dynamics_are_the_sim_dynamics_profile(model):

@@ -33,6 +33,7 @@ DESCRIPTION_PKG = "openamrobot_upperbody_description"
 MOVEIT_PKG = "openamrobot_upperbody_moveit"
 OPENARM_GAINS_REL = "assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml"
 SIM_DYNAMICS_REL = "config/sim_dynamics/openarm_v2.yaml"
+ACTUATOR_LEDGER_REL = "config/actuator_ledger.yaml"
 BASE_MODES = ("wheeled", "fixed")
 SIDES = ("left", "right")
 GRAVITY = 9.81
@@ -55,6 +56,17 @@ def config_dir() -> Path:
 def load_yaml(path: Path) -> dict:
     with open(path) as f:
         return yaml.safe_load(f)
+
+
+def ledger_peaks() -> dict[str, float]:
+    """{urdf_joint: peak torque (N m) or peak force (N)} from the description's actuator ledger (#65), for every
+    actuator the ledger maps to a URDF joint and gives a peak for. Unknown (null) peaks are left out."""
+    peaks = {}
+    for act in load_yaml(share(DESCRIPTION_PKG) / ACTUATOR_LEDGER_REL)["actuators"]:
+        peak = act.get("peak_torque") or act.get("peak_force")
+        if act.get("urdf_joint") and peak and peak.get("value") is not None:
+            peaks[act["urdf_joint"]] = float(peak["value"])
+    return peaks
 
 
 @dataclass(frozen=True)
@@ -243,10 +255,16 @@ def build_spec(cfg: Config, out_dir: Path):
                 if g.contype:
                     g.condim, g.priority = 1, 1  # frictionless, and it decides the contact's condim
         kv = twin["wheel_velocity_gain"]["value"]
+        # The URDF wheel joints are continuous with no effort limit; the hub motor's peak torque is in the ledger.
+        peaks = ledger_peaks()
         for side in SIDES:
-            act = spec.add_actuator(name=f"{side}_wheel_joint", target=f"{side}_wheel_joint",
-                                    trntype=mujoco.mjtTrn.mjTRN_JOINT)
+            jname = f"{side}_wheel_joint"
+            if jname not in peaks:
+                raise ValueError(f"{ACTUATOR_LEDGER_REL} gives no peak torque for {jname}")
+            act = spec.add_actuator(name=jname, target=jname, trntype=mujoco.mjtTrn.mjTRN_JOINT)
             act.set_to_velocity(kv=kv)
+            act.forcelimited = mujoco.mjtLimited.mjLIMITED_TRUE
+            act.forcerange = [-peaks[jname], peaks[jname]]
     elif cfg.base_mode != "fixed":
         raise ValueError(f"base_mode {cfg.base_mode!r}: one of {BASE_MODES}")
 

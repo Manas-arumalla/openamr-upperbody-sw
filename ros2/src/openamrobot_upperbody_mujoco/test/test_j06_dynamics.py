@@ -160,13 +160,13 @@ def test_wheeled_base_turns_on_the_spot(scene_for):
 
 
 @pytest.mark.xfail(strict=True, reason=(
-    "KNOWN GAP, measured 2026-11-16 on the 87.1 kg model: the URDF's drive wheel is a rigid 46 mm wide cylinder, and "
+    "KNOWN GAP, measured 2026-11-17 on the 87.1 kg model: the URDF's drive wheel is a rigid 46 mm wide cylinder, and "
     "MuJoCo contacts it at both rim edges, which scrub at full friction when turning on the spot (each |F_t| = 1.5 x "
-    "normal, e.g. 331 N on 220.7 N). With the placeholder wheel servo (kv 10) the wheels reach only +-0.31 rad/s and "
-    "the base turns at 0.15 rad/s against 0.50 for a thin wheel; with a stiff servo (kv 1000, wheels +-0.99 rad/s) at "
-    "0.31 rad/s. Gazebo (DART) on the same wheels at +-1 rad/s: 0.48 rad/s, but 0.081 m/s straight where MuJoCo gives "
-    "0.0999 (review/gazebo_spin/RESULTS.md in the work notes). The wheel-ground model, and the hub motor's torque and "
-    "acceleration limits, are for the maintainers to decide. strict: if a model change makes this pass, remove the mark."))
+    "normal, e.g. 331 N on 220.7 N). With the wheel servo at its 16 N m peak torque (actuator ledger, #65) the base turns "
+    "at 0.32 rad/s against 0.50 for a thin wheel, so it is the contact model, not the motor, that limits it. Gazebo "
+    "(DART) on the same wheels at +-1 rad/s: 0.48 rad/s, but 0.081 m/s straight where MuJoCo gives 0.0999 "
+    "(review/gazebo_spin/RESULTS.md in the work notes). The wheel-ground model is for the maintainers to decide. "
+    "strict: if a model change makes this pass, remove the mark."))
 def test_spin_rate_matches_thin_wheel_kinematics(scene_for):
     rate, expected, _ = _spin(scene_for)
     assert abs(rate - expected) <= 0.10 * expected

@@ -65,7 +65,7 @@ convention of `datums.yaml`).
 | Gravity compensation | off by default. `--arm-gravity-compensation` (fixed base only) compensates the arm bodies through the arm and lift actuators, inside their force limits; no DOF gets any of it as a passive force | the pinned `openarm_ros2` driver sends `{kp, kd, q, qd, tau}`, and a position controller leaves `tau` at 0; J04 |
 | Grippers | `finger_joint1` servo (kp 10, kv 0.2, ±7 N m); `finger_joint2` follows it through a joint equality built from the URDF `<mimic>` | openarm_mujoco finger gains; URDF |
 | Lift | speed-limited servo (`intvelocity`): input speed ≤ URDF velocity (0.018 m/s), force ≤ URDF effort (800 N); stiffness sized for 0.5 mm static error under the load it carries | URDF (datums `lift_max_*`); J06 |
-| Base | free-floating; drive wheels are velocity servos, wheel friction 1.5, casters frictionless | platform-sw `<gazebo>` surfaces. The wheel gain is a placeholder (no hub-motor data) |
+| Base | free-floating; drive wheels are velocity servos, wheel friction 1.5, casters frictionless | platform-sw `<gazebo>` surfaces. Wheel torque limit 16 N m: hub-motor peak from the actuator ledger (#65). The velocity gain is a modelling choice (stiff, so the torque limit governs) |
 | Self-collision | on, minus the SRDF's disabled pairs (MoveIt's matrix; 180 at main `37b93f5`) | SRDF; J05 |
 | Solver | `timestep 0.001`, implicitfast, elliptic cone, `impratio 10` | openarm_mujoco |
 | Cameras | on the URDF optical frames | head fovy 52° (provisional, Enactic's ZED model); the wrist fovy is a placeholder |
@@ -91,10 +91,11 @@ a frame error beyond the inertia bound.
 ## Known gaps (measured, not fixed)
 
 - **Turning on the spot** (J06, a strict xfail). The URDF's drive wheel is a rigid cylinder 46 mm wide. MuJoCo
-  contacts it at both rim edges, and the two edges scrub at full friction when the base turns. With the placeholder
-  wheel servo the base turns at 0.15 rad/s where a thin wheel gives 0.50; with a stiff servo it reaches 0.31. Gazebo
-  (DART) on the same wheels turns at 0.48 rad/s but goes straight at 0.081 m/s, where MuJoCo gives 0.0999. The
-  wheel-ground model and the hub motor's torque and acceleration limits are for the maintainers to decide.
+  contacts it at both rim edges, and the two edges scrub at full friction when the base turns. With the wheel servo at
+  the hub motor's 16 N m peak torque the base turns at 0.32 rad/s where a thin wheel gives 0.50, so the contact model,
+  not the motor, is the limit. Gazebo (DART) on the same wheels turns at 0.48 rad/s but goes straight at 0.081 m/s,
+  where MuJoCo gives 0.0999. The wheel-ground model, and the drive's velocity gain and acceleration limit, are for the
+  maintainers to decide.
 - **The drive wheels overlap the floor by 2 mm in the URDF.** The axle is at `base_link` height (0.098 m) and the
   wheel radius is 0.100 m.
 - **The wrist cameras do not see the fingers** (0.0 % of pixels; their poses are upstream placeholders, issue #24).

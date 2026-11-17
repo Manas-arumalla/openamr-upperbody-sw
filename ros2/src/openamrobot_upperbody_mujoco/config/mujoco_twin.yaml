@@ -24,9 +24,9 @@ lift_static_error:
   status: modelling
 
 wheel_velocity_gain:
-  value: 10.0
-  source: "modelling: velocity-servo gain (N m s/rad) per drive wheel. No hub-motor data exists (torque limit, acceleration limit), so there is no sourced value. Measured 2026-11-16 on the 87.1 kg model: straight driving reaches the commanded 1 rad/s at any gain; for a +-1 rad/s spin command the wheels reach +-0.31 rad/s at kv 10 (the wide-wheel scrub load), +-0.95 at kv 100, +-0.99 at kv 1000, but a stiff servo with no torque limit pitches the base 10 deg on a step command, which a real motor cannot. Replace with the hub motor's torque limit and the drive's acceleration limits when they exist"
-  status: placeholder
+  value: 1000.0
+  source: "modelling: velocity-servo gain (N m s/rad) per drive wheel, with the hub motor's peak torque from the description's actuator ledger (#65: ZLLG80ASM250 datasheet, 16 N m) as its force limit. The ZLAC8015D runs the motors in profile-velocity mode; its velocity-loop gain and acceleration limit are not known, so the gain is chosen stiff enough that the torque limit governs (16 N m is reached at 0.016 rad/s of speed error). Measured 2026-11-17 on the 87.1 kg model, floor scene, +-1 rad/s spin / 1 rad/s straight (spin_vs_gain.py in the work notes): kv 10 -> spin 0.153 rad/s (the wide-wheel scrub load holds the wheels at +-0.31 rad/s); kv 100 -> 0.288; kv 1000 -> 0.321 with the 16 N m limit, 0.310 without. Straight 0.0999 m/s at every gain. Base tilt on the step command: 0.57 deg at kv 1000 with the limit, 10.05 deg without it, so the limit is what makes a stiff gain physical. Replace with the drive's velocity-loop gain and acceleration limit when they exist"
+  status: modelling
 
 wheel_friction:
   value: 1.5
